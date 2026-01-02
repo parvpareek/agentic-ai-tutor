@@ -9,7 +9,7 @@ export default function Results() {
   const { state, setProgress } = useTutor();
 
   if (!state.lastEvaluation) {
-    navigate('/concepts');
+    navigate('/learn');
     return null;
   }
 
@@ -31,13 +31,13 @@ export default function Results() {
       const newCompleted = state.progress.completed + 1;
       setProgress({ ...state.progress, completed: newCompleted });
       if (newCompleted < state.progress.total) {
-        navigate('/concepts');
+        navigate('/learn');
       } else {
         alert('Congratulations! You have completed all concepts!');
         navigate('/');
       }
     } else if (nextAction === 'clarify_concept') {
-      navigate('/concepts');
+      navigate('/learn');
     } else {
       navigate('/quiz');
     }

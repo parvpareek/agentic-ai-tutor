@@ -18,7 +18,7 @@ export default function Quiz() {
   const [submitted, setSubmitted] = useState(false); // Prevent duplicate submissions
 
   if (!state.currentQuiz) {
-    navigate('/concepts');
+    navigate('/learn');
     return null;
   }
 
@@ -74,7 +74,7 @@ Ready to continue learning? Click "Next Step" to proceed!
       
       // Small delay to show "submitted" feedback before navigating
       setTimeout(() => {
-        navigate('/concepts');
+        navigate('/learn');
       }, 800);
     } catch (error) {
       console.error('Failed to submit quiz:', error);

@@ -216,10 +216,28 @@ yarn-error.log*
 pnpm-debug.log*
 lerna-debug.log*
 
+# Frontend dependencies and build outputs
 node_modules
 dist
 dist-ssr
+build
 *.local
+
+# Frontend cache and temporary directories
+.vite/
+.cache/
+.parcel-cache/
+.turbo/
+.next/
+.nuxt/
+.svelte-kit/
+.vercel/
+.netlify/
+
+# Frontend test coverage
+coverage/
+.nyc_output/
+*.lcov
 
 # Editor directories and files
 .vscode/*

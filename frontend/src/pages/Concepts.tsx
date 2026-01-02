@@ -64,12 +64,12 @@ export default function Concepts() {
         </div>
 
         <Button 
-          disabled
+          onClick={() => navigate('/learn')}
           size="lg"
-          className="w-full opacity-70 cursor-not-allowed"
+          className="w-full group"
         >
-          Learning flow disabled in this build
-          <ArrowRight className="ml-2 h-5 w-5" />
+          Begin Learning
+          <ArrowRight className="ml-2 h-5 w-5 group-hover:translate-x-1 transition-transform" />
         </Button>
       </div>
     </div>

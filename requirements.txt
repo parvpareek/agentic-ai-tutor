@@ -5,7 +5,7 @@ pydantic>=2.5.2
 langgraph==0.2.55
 langchain>=0.3.17
 langchain-core>=0.3.33
-langchain-google-genai==2.0.8
+langchain-openai>=0.2.0
 chromadb==0.5.23
 sentence-transformers==2.2.2
 python-multipart==0.0.6

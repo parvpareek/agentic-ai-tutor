@@ -1,6 +1,6 @@
 # backend/app/tools/tutor_tools.py
 from langchain_core.tools import tool
-from langchain_google_genai import ChatGoogleGenerativeAI
+from langchain_openai import ChatOpenAI
 from langchain_core.output_parsers import JsonOutputParser
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
@@ -9,11 +9,11 @@ from app.core.database import db
 from app.core.vectorstore import query_top_k
 from app.core.config import settings
 
-# Initialize Google Gemini LLM for tool usage
-llm = ChatGoogleGenerativeAI(
-    model=settings.GEMINI_MODEL,
+# Initialize OpenAI LLM for tool usage
+llm = ChatOpenAI(
+    model=settings.OPENAI_MODEL,
     temperature=0.7,
-    google_api_key=settings.GOOGLE_API_KEY
+    openai_api_key=settings.OPENAI_API_KEY
 )
 
 # ===== Student Profile Tools =====

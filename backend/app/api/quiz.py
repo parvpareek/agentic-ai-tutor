@@ -20,12 +20,12 @@ async def generate_quiz(req: QuizRequest):
         from app.core.vectorstore import vectorstore
         from app.core.database import db
         from app.core.config import settings
-        from langchain_google_genai import ChatGoogleGenerativeAI
+        from langchain_openai import ChatOpenAI
         
-        llm = ChatGoogleGenerativeAI(
-            model=settings.GEMINI_MODEL,
+        llm = ChatOpenAI(
+            model=settings.OPENAI_MODEL,
             temperature=0.7,
-            google_api_key=settings.GOOGLE_API_KEY
+            openai_api_key=settings.OPENAI_API_KEY
         )
         
         tutor_evaluator = TutorEvaluatorAgent(vectorstore, llm, db)
