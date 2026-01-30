@@ -250,6 +250,8 @@ coverage/
 *.sln
 *.sw?
 
+!frontend/src/lib/
+!frontend/src/lib/**
 agentic_tutor.db
 backend/markdown/
 backend/test/
