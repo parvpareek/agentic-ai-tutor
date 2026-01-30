@@ -1,11 +1,8 @@
 # Use Python 3.11 slim image
 FROM python:3.11-slim
 
-# Install system dependencies needed for sentence-transformers and PyMuPDF
-RUN apt-get update && apt-get install -y \
-    build-essential \
-    libgomp1 \
-    && rm -rf /var/lib/apt/lists/*
+# No system dependencies needed anymore (removed sentence-transformers)
+# PyMuPDF works with Python-only dependencies
 
 # Set working directory
 WORKDIR /app

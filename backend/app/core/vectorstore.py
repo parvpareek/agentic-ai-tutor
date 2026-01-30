@@ -19,30 +19,44 @@ else:
     client = chromadb.PersistentClient(path=settings.VECTOR_DB_PATH)
     print(f"[VectorStore] Using local ChromaDB at {settings.VECTOR_DB_PATH}")
 
-# Use a local SentenceTransformer embedding function for automatic embedding
+# Initialize embedding function - use OpenAI embeddings for better quality and smaller Docker image
 # Note: ChromaDB Cloud handles embeddings server-side, so we don't pass embedding_function for cloud
-sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
-    model_name="all-MiniLM-L6-v2"
-)
+_embedding_function = None
 
-# Initialize collections - ChromaDB Cloud doesn't support custom embedding functions
-# For cloud, embeddings are handled server-side automatically
 if settings.USE_CLOUD_CHROMA:
     # Cloud mode: Don't pass embedding_function (ChromaDB Cloud handles it)
     collection = client.get_or_create_collection("agentic_tutor")
     taught_summaries = client.get_or_create_collection("taught_summaries")
     print("[VectorStore] Created collections in cloud mode (server-side embeddings)")
 else:
-    # Local mode: Use custom embedding function
-    collection = client.get_or_create_collection(
-        "agentic_tutor",
-        embedding_function=sentence_transformer_ef
-    )
-    taught_summaries = client.get_or_create_collection(
-        "taught_summaries",
-        embedding_function=sentence_transformer_ef
-    )
-    print("[VectorStore] Created collections in local mode (custom embeddings)")
+    # Local mode: Use OpenAI embeddings (better quality, no large model downloads)
+    try:
+        _embedding_function = embedding_functions.OpenAIEmbeddingFunction(
+            api_key=settings.OPENAI_API_KEY,
+            model_name="text-embedding-3-small"  # Fast and cost-effective
+        )
+        print("[VectorStore] Using OpenAI embeddings for local ChromaDB")
+    except Exception as e:
+        print(f"[VectorStore] Warning: Failed to initialize OpenAI embeddings: {e}")
+        print("[VectorStore] Falling back to default ChromaDB embeddings")
+        _embedding_function = None
+    
+    # Create collections with embedding function
+    if _embedding_function:
+        collection = client.get_or_create_collection(
+            "agentic_tutor",
+            embedding_function=_embedding_function
+        )
+        taught_summaries = client.get_or_create_collection(
+            "taught_summaries",
+            embedding_function=_embedding_function
+        )
+    else:
+        # Fallback to default embeddings if OpenAI fails
+        collection = client.get_or_create_collection("agentic_tutor")
+        taught_summaries = client.get_or_create_collection("taught_summaries")
+    
+    print("[VectorStore] Created collections in local mode")
 
 # -------------------- Lightweight BM25 Support --------------------
 try:
@@ -216,10 +230,14 @@ def clear_taught_summaries():
             client.delete_collection("taught_summaries")
         except Exception:
             pass
-        globals()["taught_summaries"] = client.get_or_create_collection(
-            "taught_summaries",
-            embedding_function=sentence_transformer_ef
-        )
+        # Recreate with same embedding function as original collection
+        if _embedding_function:
+            globals()["taught_summaries"] = client.get_or_create_collection(
+                "taught_summaries",
+                embedding_function=_embedding_function
+            )
+        else:
+            globals()["taught_summaries"] = client.get_or_create_collection("taught_summaries")
 
 # Create a simple vectorstore class for easier imports
 class VectorStore:

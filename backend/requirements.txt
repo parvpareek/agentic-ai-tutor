@@ -7,7 +7,6 @@ langchain>=0.3.17
 langchain-core>=0.3.33
 langchain-openai>=0.2.0
 chromadb>=0.5.23
-sentence-transformers==2.2.2
 python-multipart==0.0.6
 PyMuPDF==1.23.8
 python-dotenv==1.0.0

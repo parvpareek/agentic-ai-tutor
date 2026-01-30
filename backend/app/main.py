@@ -10,12 +10,30 @@ app = FastAPI(
     version="2.0.0"
 )
 
-# CORS configuration - allow Vercel frontend
+# CORS configuration - allow Vercel frontend and local development
 frontend_url = settings.FRONTEND_URL
-allowed_origins = [frontend_url]
+allowed_origins = []
+
+# Always add the configured frontend URL
+if frontend_url:
+    allowed_origins.append(frontend_url)
+
+# In development, also allow common localhost ports
 if settings.DEBUG:
-    # In development, also allow localhost
-    allowed_origins.extend(["http://localhost:5173", "http://localhost:3000"])
+    allowed_origins.extend([
+        "http://localhost:8080",  # Vite default port
+        "http://localhost:5173",  # Vite alternative port
+        "http://localhost:3000",  # React default port
+        "http://127.0.0.1:8080",
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000",
+    ])
+
+# Remove duplicates while preserving order
+seen = set()
+allowed_origins = [x for x in allowed_origins if x and (x not in seen, seen.add(x))[0]]
+
+print(f"[CORS] Allowed origins: {allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
