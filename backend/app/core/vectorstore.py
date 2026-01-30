@@ -3,25 +3,46 @@ import chromadb
 from chromadb.utils import embedding_functions
 from typing import List, Dict, Any
 import re
+from app.core.config import settings
 
-# Use PersistentClient for on-disk persistence with Chroma 0.5.x
-client = chromadb.PersistentClient(path="./chroma_db")
+# Initialize ChromaDB client (cloud or local)
+if settings.USE_CLOUD_CHROMA and settings.CHROMA_API_KEY and settings.CHROMA_TENANT and settings.CHROMA_DATABASE:
+    # ChromaDB Cloud using CloudClient
+    client = chromadb.CloudClient(
+        api_key=settings.CHROMA_API_KEY,
+        tenant=settings.CHROMA_TENANT,
+        database=settings.CHROMA_DATABASE
+    )
+    print(f"[VectorStore] Connected to ChromaDB Cloud (tenant: {settings.CHROMA_TENANT}, database: {settings.CHROMA_DATABASE})")
+else:
+    # Local ChromaDB using PersistentClient
+    client = chromadb.PersistentClient(path=settings.VECTOR_DB_PATH)
+    print(f"[VectorStore] Using local ChromaDB at {settings.VECTOR_DB_PATH}")
 
 # Use a local SentenceTransformer embedding function for automatic embedding
+# Note: ChromaDB Cloud handles embeddings server-side, so we don't pass embedding_function for cloud
 sentence_transformer_ef = embedding_functions.SentenceTransformerEmbeddingFunction(
     model_name="all-MiniLM-L6-v2"
 )
 
-collection = client.get_or_create_collection(
-    "agentic_tutor",
-    embedding_function=sentence_transformer_ef
-)
-
-# Separate collection for taught summaries (long-term memory, small texts)
-taught_summaries = client.get_or_create_collection(
-    "taught_summaries",
-    embedding_function=sentence_transformer_ef
-)
+# Initialize collections - ChromaDB Cloud doesn't support custom embedding functions
+# For cloud, embeddings are handled server-side automatically
+if settings.USE_CLOUD_CHROMA:
+    # Cloud mode: Don't pass embedding_function (ChromaDB Cloud handles it)
+    collection = client.get_or_create_collection("agentic_tutor")
+    taught_summaries = client.get_or_create_collection("taught_summaries")
+    print("[VectorStore] Created collections in cloud mode (server-side embeddings)")
+else:
+    # Local mode: Use custom embedding function
+    collection = client.get_or_create_collection(
+        "agentic_tutor",
+        embedding_function=sentence_transformer_ef
+    )
+    taught_summaries = client.get_or_create_collection(
+        "taught_summaries",
+        embedding_function=sentence_transformer_ef
+    )
+    print("[VectorStore] Created collections in local mode (custom embeddings)")
 
 # -------------------- Lightweight BM25 Support --------------------
 try:

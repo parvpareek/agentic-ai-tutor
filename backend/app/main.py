@@ -2,6 +2,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.api import chat, progress, ingest, simple_tutor, session
+from app.core.config import settings
 
 app = FastAPI(
     title="Agentic AI Tutor - Simplified 4-Agent System",
@@ -9,9 +10,17 @@ app = FastAPI(
     version="2.0.0"
 )
 
+# CORS configuration - allow Vercel frontend
+frontend_url = settings.FRONTEND_URL
+allowed_origins = [frontend_url]
+if settings.DEBUG:
+    # In development, also allow localhost
+    allowed_origins.extend(["http://localhost:5173", "http://localhost:3000"])
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )

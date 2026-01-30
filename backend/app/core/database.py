@@ -4,10 +4,12 @@ import json
 from typing import Dict, List, Any, Optional
 from datetime import datetime
 import os
+from app.core.config import settings
 
 class Database:
-    def __init__(self, db_path: str = "agentic_tutor.db"):
-        self.db_path = db_path
+    def __init__(self, db_path: str = None):
+        # Use config setting or provided path, fallback to default
+        self.db_path = db_path or settings.SQLITE_PATH
         self.STUDENT_ID = "student_001"  # Single user system
         self.init_database()
     

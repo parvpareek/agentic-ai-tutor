@@ -10,13 +10,15 @@ from typing import Dict, List, Any, Optional
 from llmsherpa.readers import LayoutPDFReader
 import tempfile
 import uuid
+from app.core.config import settings
 
 class HierarchicalDocumentParser:
     """Parser for extracting hierarchical structure from documents"""
     
-    def __init__(self, llmsherpa_api_url: str = "http://127.0.0.1:5010/api/parseDocument?renderFormat=all&useNewIndentParser=true"):
-        self.api_url = llmsherpa_api_url
-        self.pdf_reader = LayoutPDFReader(llmsherpa_api_url)
+    def __init__(self, llmsherpa_api_url: str = None):
+        # Use config setting or provided URL, fallback to default
+        self.api_url = llmsherpa_api_url or settings.LLMSHERPA_API_URL
+        self.pdf_reader = LayoutPDFReader(self.api_url)
     
     def parse_document(self, file_content: bytes, filename: str) -> Dict[str, Any]:
         """
