@@ -17,7 +17,9 @@ class HierarchicalDocumentParser:
     
     def __init__(self, llmsherpa_api_url: str = None):
         # Use config setting or provided URL, fallback to default
-        self.api_url = llmsherpa_api_url or settings.LLMSHERPA_API_URL
+        # Strip whitespace to prevent InvalidURL errors
+        api_url = llmsherpa_api_url or settings.LLMSHERPA_API_URL
+        self.api_url = api_url.strip() if api_url else api_url
         self.pdf_reader = LayoutPDFReader(self.api_url)
     
     def parse_document(self, file_content: bytes, filename: str) -> Dict[str, Any]:

@@ -33,10 +33,13 @@ class Settings:
     FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://agentic-ai-tutor-eight.vercel.app/")
     
     # PDF Parser Service Configuration (nlm-ingestor)
+    # RECOMMENDED: Use public Railway URL (e.g., http://nlm-ingestor.up.railway.app/api/parseDocument?renderFormat=all&useNewIndentParser=true)
+    # Alternative: Internal URL (http://nlm-ingestor.railway.internal:5001/api/parseDocument?renderFormat=all&useNewIndentParser=true)
+    # Strips whitespace to prevent InvalidURL errors
     LLMSHERPA_API_URL: str = os.getenv(
         "LLMSHERPA_API_URL", 
         "http://127.0.0.1:5010/api/parseDocument?renderFormat=all&useNewIndentParser=true"
-    )
+    ).strip()
     
     def __init__(self):
         if not self.OPENAI_API_KEY:
