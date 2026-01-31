@@ -14,9 +14,14 @@ app = FastAPI(
 frontend_url = settings.FRONTEND_URL
 allowed_origins = []
 
-# Always add the configured frontend URL
+# Always add the configured frontend URL (without trailing slash)
 if frontend_url:
-    allowed_origins.append(frontend_url)
+    # Ensure no trailing slash for consistent origin matching
+    frontend_url_clean = frontend_url.rstrip('/')
+    allowed_origins.append(frontend_url_clean)
+    # Also add with trailing slash just in case (though browsers send without)
+    if frontend_url_clean and not frontend_url_clean.endswith('/'):
+        allowed_origins.append(frontend_url_clean + '/')
 
 # In development, also allow common localhost ports
 if settings.DEBUG:
@@ -34,6 +39,7 @@ seen = set()
 allowed_origins = [x for x in allowed_origins if x and (x not in seen, seen.add(x))[0]]
 
 print(f"[CORS] Allowed origins: {allowed_origins}")
+print(f"[CORS] Frontend URL from config: {frontend_url}")
 
 app.add_middleware(
     CORSMiddleware,

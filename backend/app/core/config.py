@@ -30,7 +30,9 @@ class Settings:
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     
     # CORS Configuration
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://agentic-ai-tutor-eight.vercel.app/")
+    # Strip trailing slash to ensure consistent origin matching
+    _frontend_url_raw = os.getenv("FRONTEND_URL", "https://agentic-ai-tutor-eight.vercel.app")
+    FRONTEND_URL: str = _frontend_url_raw.rstrip('/') if _frontend_url_raw else ""
     
     # PDF Parser Service Configuration (nlm-ingestor)
     # RECOMMENDED: Use public Railway URL (e.g., http://nlm-ingestor.up.railway.app/api/parseDocument?renderFormat=all&useNewIndentParser=true)
@@ -40,6 +42,10 @@ class Settings:
         "LLMSHERPA_API_URL", 
         "http://127.0.0.1:5010/api/parseDocument?renderFormat=all&useNewIndentParser=true"
     ).strip()
+    
+    # PDF Parser Timeout Configuration (in seconds)
+    # Large PDFs may need more time. Default: 300 seconds (5 minutes)
+    LLMSHERPA_TIMEOUT: int = int(os.getenv("LLMSHERPA_TIMEOUT", "300"))
     
     def __init__(self):
         if not self.OPENAI_API_KEY:

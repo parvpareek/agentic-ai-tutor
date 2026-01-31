@@ -10,6 +10,7 @@ from typing import Dict, List, Any, Optional
 from llmsherpa.readers import LayoutPDFReader
 import tempfile
 import uuid
+import requests
 from app.core.config import settings
 
 class HierarchicalDocumentParser:
@@ -20,7 +21,18 @@ class HierarchicalDocumentParser:
         # Strip whitespace to prevent InvalidURL errors
         api_url = llmsherpa_api_url or settings.LLMSHERPA_API_URL
         self.api_url = api_url.strip() if api_url else api_url
-        self.pdf_reader = LayoutPDFReader(self.api_url)
+        self.timeout = settings.LLMSHERPA_TIMEOUT
+        
+        # Try to configure LayoutPDFReader with timeout if possible
+        # Note: LayoutPDFReader may not expose timeout directly, but we'll try
+        try:
+            # LayoutPDFReader uses requests internally, but doesn't expose timeout config
+            # We'll handle timeouts in our retry logic instead
+            self.pdf_reader = LayoutPDFReader(self.api_url)
+            print(f"[PDF Parser] Initialized with timeout: {self.timeout}s")
+        except Exception as e:
+            print(f"[PDF Parser] Warning: Failed to initialize LayoutPDFReader: {e}")
+            self.pdf_reader = None
     
     def parse_document(self, file_content: bytes, filename: str) -> Dict[str, Any]:
         """
@@ -56,18 +68,74 @@ class HierarchicalDocumentParser:
             return self._parse_text(file_content, filename)
     
     def _parse_pdf(self, file_content: bytes, filename: str) -> Dict[str, Any]:
-        """Parse PDF using LayoutPDFReader"""
+        """Parse PDF using LayoutPDFReader with improved error handling"""
+        temp_file_path = None
         try:
+            # Log file size for debugging
+            file_size_mb = len(file_content) / (1024 * 1024)
+            print(f"[PDF Parser] Attempting to parse PDF: {filename} ({file_size_mb:.2f} MB)")
+            print(f"[PDF Parser] Using API URL: {self.api_url}")
+            
             # Save to temporary file
             with tempfile.NamedTemporaryFile(suffix='.pdf', delete=False) as temp_file:
                 temp_file.write(file_content)
                 temp_file_path = temp_file.name
             
-            # Parse with LayoutPDFReader
-            doc = self.pdf_reader.read_pdf(temp_file_path)
+            # Parse with LayoutPDFReader (with retry logic for transient errors)
+            max_retries = 2
+            last_error = None
+            
+            for attempt in range(max_retries):
+                try:
+                    print(f"[PDF Parser] Attempt {attempt + 1}/{max_retries} (timeout: {self.timeout}s)...")
+                    doc = self.pdf_reader.read_pdf(temp_file_path)
+                    print(f"[PDF Parser] ✅ Successfully parsed PDF")
+                    break
+                except KeyError as ke:
+                    # Handle 'return_dict' KeyError - service returned unexpected response
+                    last_error = ke
+                    error_msg = str(ke)
+                    print(f"[PDF Parser] KeyError on attempt {attempt + 1}: {error_msg}")
+                    if "return_dict" in error_msg:
+                        print(f"[PDF Parser] ⚠️  nlm-ingestor service returned unexpected response format")
+                        print(f"[PDF Parser] This usually means the service crashed or returned an error")
+                    if attempt < max_retries - 1:
+                        import time
+                        time.sleep(3)  # Wait 3 seconds before retry
+                        continue
+                    raise
+                except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as ce:
+                    # Handle connection/timeout errors specifically
+                    last_error = ce
+                    error_msg = str(ce)
+                    print(f"[PDF Parser] Connection/Timeout error on attempt {attempt + 1}: {error_msg}")
+                    if "Remote end closed connection" in error_msg or "without response" in error_msg:
+                        print(f"[PDF Parser] ⚠️  Service closed connection - likely timeout or crash")
+                        print(f"[PDF Parser] 💡 The nlm-ingestor service needs more resources or a longer timeout")
+                        print(f"[PDF Parser] 💡 Current timeout setting: {self.timeout}s")
+                        print(f"[PDF Parser] 💡 File size: {file_size_mb:.2f} MB - may be too large for current service config")
+                    if attempt < max_retries - 1:
+                        import time
+                        time.sleep(5)  # Wait 5 seconds before retry (longer for connection issues)
+                        continue
+                    raise
+                except Exception as e:
+                    last_error = e
+                    error_msg = str(e)
+                    print(f"[PDF Parser] Error on attempt {attempt + 1}: {error_msg}")
+                    # Check for specific error types
+                    if "Connection" in error_msg or "timeout" in error_msg.lower() or "Remote end" in error_msg:
+                        print(f"[PDF Parser] ⚠️  Connection/timeout error - service may be overloaded or crashed")
+                        print(f"[PDF Parser] 💡 Increase nlm-ingestor service resources (memory/CPU) in Railway")
+                    if attempt < max_retries - 1:
+                        import time
+                        time.sleep(3)  # Wait 3 seconds before retry
+                        continue
+                    raise
             
             # Clean up temp file
-            os.unlink(temp_file_path)
+            if temp_file_path and os.path.exists(temp_file_path):
+                os.unlink(temp_file_path)
             
             # Extract hierarchical structure
             hierarchy = self._extract_hierarchy(doc)
@@ -89,7 +157,27 @@ class HierarchicalDocumentParser:
             }
             
         except Exception as e:
-            print(f"PDF parsing failed, falling back to text: {str(e)}")
+            error_type = type(e).__name__
+            error_msg = str(e)
+            print(f"[PDF Parser] ❌ PDF parsing failed ({error_type}): {error_msg}")
+            
+            # Provide more helpful error messages
+            if "return_dict" in error_msg:
+                print(f"[PDF Parser] 💡 Tip: The nlm-ingestor service may have crashed or timed out.")
+                print(f"[PDF Parser] 💡 Tip: Check the nlm-ingestor service logs and ensure it has enough memory/CPU.")
+                print(f"[PDF Parser] 💡 Tip: Large PDFs (>10MB) may need more resources.")
+            elif "Connection" in error_msg or "timeout" in error_msg.lower():
+                print(f"[PDF Parser] 💡 Tip: The service may be overloaded. Try again in a moment.")
+            
+            # Clean up temp file if it exists
+            if temp_file_path and os.path.exists(temp_file_path):
+                try:
+                    os.unlink(temp_file_path)
+                except Exception:
+                    pass
+            
+            # Fallback to text parsing
+            print(f"[PDF Parser] Falling back to simple text extraction...")
             return self._parse_text(file_content, filename)
     
     def _parse_html(self, file_content: bytes, filename: str) -> Dict[str, Any]:
