@@ -19,43 +19,42 @@ else:
     client = chromadb.PersistentClient(path=settings.VECTOR_DB_PATH)
     print(f"[VectorStore] Using local ChromaDB at {settings.VECTOR_DB_PATH}")
 
-# Initialize embedding function - ALWAYS use OpenAI embeddings to avoid downloading large models
-# Note: ChromaDB Cloud handles embeddings server-side, so we don't pass embedding_function for cloud
+# Initialize embedding function - ALWAYS use OpenAI embeddings to prevent ChromaDB from downloading models
+# CRITICAL: Even for ChromaDB Cloud, we MUST pass OpenAI embeddings to prevent the client library 
+# from downloading default models (all-MiniLM-L6-v2) when adding documents
 _embedding_function = None
 
+# ALWAYS initialize OpenAI embeddings FIRST (prevents ChromaDB from downloading default models)
+if not settings.OPENAI_API_KEY:
+    raise ValueError("OPENAI_API_KEY is required. Without it, ChromaDB will download 79MB default embedding models.")
+
+try:
+    _embedding_function = embedding_functions.OpenAIEmbeddingFunction(
+        api_key=settings.OPENAI_API_KEY,
+        model_name="text-embedding-3-small"  # Fast and cost-effective
+    )
+    print("[VectorStore] ✅ Initialized OpenAI embeddings (prevents 79MB model download)")
+except Exception as e:
+    raise RuntimeError(f"Failed to initialize OpenAI embeddings: {e}. This is required to prevent model downloads.") from e
+
+# Delete existing collections if they exist (they might have been created with default embeddings)
+# This ensures we recreate them with OpenAI embeddings
+try:
+    client.delete_collection("agentic_tutor")
+    print("[VectorStore] Deleted existing 'agentic_tutor' collection to recreate with OpenAI embeddings")
+except Exception:
+    pass  # Collection doesn't exist, that's fine
+
+try:
+    client.delete_collection("taught_summaries")
+    print("[VectorStore] Deleted existing 'taught_summaries' collection to recreate with OpenAI embeddings")
+except Exception:
+    pass  # Collection doesn't exist, that's fine
+
+# ALWAYS create collections with OpenAI embedding function (for both cloud and local)
+# This prevents ChromaDB from downloading default models when adding documents
 if settings.USE_CLOUD_CHROMA and settings.CHROMA_API_KEY and settings.CHROMA_TENANT and settings.CHROMA_DATABASE:
-    # Cloud mode: Don't pass embedding_function (ChromaDB Cloud handles it)
-    collection = client.get_or_create_collection("agentic_tutor")
-    taught_summaries = client.get_or_create_collection("taught_summaries")
-    print("[VectorStore] Created collections in cloud mode (server-side embeddings)")
-else:
-    # Local mode: ALWAYS use OpenAI embeddings (prevents ChromaDB from downloading default models)
-    if not settings.OPENAI_API_KEY:
-        raise ValueError("OPENAI_API_KEY is required for local ChromaDB embeddings. Set USE_CLOUD_CHROMA=true to use ChromaDB Cloud instead.")
-    
-    try:
-        _embedding_function = embedding_functions.OpenAIEmbeddingFunction(
-            api_key=settings.OPENAI_API_KEY,
-            model_name="text-embedding-3-small"  # Fast and cost-effective
-        )
-        print("[VectorStore] Using OpenAI embeddings for local ChromaDB (prevents model downloads)")
-    except Exception as e:
-        raise RuntimeError(f"Failed to initialize OpenAI embeddings: {e}. OpenAI API key is required for embeddings.") from e
-    
-    # Delete existing collections if they exist with default embeddings, then recreate with OpenAI
-    try:
-        client.delete_collection("agentic_tutor")
-        print("[VectorStore] Deleted existing collection to recreate with OpenAI embeddings")
-    except Exception:
-        pass  # Collection doesn't exist, that's fine
-    
-    try:
-        client.delete_collection("taught_summaries")
-        print("[VectorStore] Deleted existing taught_summaries collection to recreate with OpenAI embeddings")
-    except Exception:
-        pass  # Collection doesn't exist, that's fine
-    
-    # Create collections with OpenAI embedding function (required to prevent default model download)
+    # Cloud mode: Pass OpenAI embeddings to prevent client from downloading models
     collection = client.get_or_create_collection(
         "agentic_tutor",
         embedding_function=_embedding_function
@@ -64,7 +63,18 @@ else:
         "taught_summaries",
         embedding_function=_embedding_function
     )
-    print("[VectorStore] Created collections in local mode with OpenAI embeddings")
+    print("[VectorStore] ✅ Created ChromaDB Cloud collections with OpenAI embeddings (no model downloads)")
+else:
+    # Local mode: Also use OpenAI embeddings
+    collection = client.get_or_create_collection(
+        "agentic_tutor",
+        embedding_function=_embedding_function
+    )
+    taught_summaries = client.get_or_create_collection(
+        "taught_summaries",
+        embedding_function=_embedding_function
+    )
+    print("[VectorStore] ✅ Created local ChromaDB collections with OpenAI embeddings (no model downloads)")
 
 # -------------------- Lightweight BM25 Support --------------------
 try:
