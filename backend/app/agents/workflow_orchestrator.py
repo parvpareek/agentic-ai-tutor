@@ -29,11 +29,12 @@ class WorkflowOrchestrator:
     """Main orchestrator for the simplified 4-agent workflow"""
     
     def __init__(self):
-        # Initialize LLM
+        # Initialize LLM with higher max_tokens for detailed explanations
         self.llm = ChatOpenAI(
             model=settings.OPENAI_MODEL,
             temperature=0.2,
-            openai_api_key=settings.OPENAI_API_KEY
+            openai_api_key=settings.OPENAI_API_KEY,
+            max_tokens=2000  # Allow longer, more detailed explanations
         )
         
         # Initialize agents
@@ -823,22 +824,34 @@ class WorkflowOrchestrator:
                 recent_summaries = self.memory.get_last_session_summaries(k=3)
             except Exception:
                 recent_summaries = []
-        educator_prompt = f"""Explain this topic using the provided context.
+        
+        # Increased context limit from 1500 to 5000 characters for richer explanations
+        context_preview = study_content[:5000] if len(study_content) > 5000 else study_content
+        recent_session_preview = json.dumps(recent_summaries)[:1000] if recent_summaries else ""
+        
+        educator_prompt = f"""Explain this topic comprehensively using the provided context.
 
             TOPIC: {topic}
 
-CONTEXT:
-{study_content[:1500]}
+CONTEXT (use ALL relevant information from the documents):
+{context_preview}
 
 RECENT SESSION (for continuity):
-{json.dumps(recent_summaries)[:600]}
+{recent_session_preview}
+
+INSTRUCTIONS:
+- Write a DETAILED, comprehensive explanation ( paragraphs, 200-500 words)
+- Ground every claim in the provided context - cite specific examples and details
+- Include: definition, how it works, why it matters, real-world applications, key concepts
+- Use clear examples from the context
+- Make it thorough enough for a student to deeply understand the topic
 
 Return ONLY JSON (no code fences):
 {{
-  "full_text": "4-6 paragraph explanation grounded in context",
-  "summary": "1-2 sentence summary",
-  "excerpts": ["quote from context"],
-  "student_facing_next_steps": ["exercise 1"],
+  "full_text": "Comprehensive 2-3 paragraph explanation (200-500 words) thoroughly grounded in context with specific examples and details",
+  "summary": "2-3 sentence summary",
+  "excerpts": ["quote from context", "another quote"],
+  "student_facing_next_steps": ["exercise 1", "exercise 2"],
   "memory_patch": {{"session_summary_delta": "note", "confidence": 0.8}}
 }}"""
         
