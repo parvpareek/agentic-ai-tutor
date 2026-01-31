@@ -30,7 +30,7 @@ class Settings:
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
     
     # CORS Configuration
-    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "http://localhost:5173")
+    FRONTEND_URL: str = os.getenv("FRONTEND_URL", "https://agentic-ai-tutor-eight.vercel.app/")
     
     # PDF Parser Service Configuration (nlm-ingestor)
     LLMSHERPA_API_URL: str = os.getenv(
